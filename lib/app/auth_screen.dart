@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/auth/auth_session.dart';
 import '../core/auth/auth_repository.dart';
+import '../core/network/api_exception.dart';
 import '../core/providers.dart';
 import 'theme/moneymate_theme.dart';
 
@@ -68,11 +69,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
       await ref.read(authControllerProvider.notifier).setSession(session);
     } catch (e) {
-      final message = e is Exception ? e.toString() : 'Terjadi kesalahan.';
+      final message = e is ApiException
+          ? e.message
+          : 'Terjadi kesalahan. Periksa kembali data Anda.';
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: MoneyMateTheme.danger,
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -95,7 +101,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       return 'Email wajib diisi.';
     }
     final email = value.trim();
-    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+\$');
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
     if (!emailRegex.hasMatch(email)) {
       return 'Masukkan alamat email valid.';
     }
@@ -106,8 +112,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (value == null || value.isEmpty) {
       return 'Kata sandi wajib diisi.';
     }
-    if (value.length < 8) {
-      return 'Kata sandi minimal 8 karakter.';
+    if (value.length < 6) {
+      return 'Kata sandi minimal 6 karakter.';
     }
     return null;
   }
