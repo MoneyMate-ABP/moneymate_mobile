@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/auth/auth_session.dart';
 import '../core/providers.dart';
+import 'auth_screen.dart';
 import 'theme/moneymate_theme.dart';
 
 class MoneyMateApp extends ConsumerWidget {
@@ -30,60 +31,13 @@ class BootstrapScreen extends ConsumerWidget {
       loading: () => const Scaffold(
         body: SafeArea(child: Center(child: CircularProgressIndicator())),
       ),
-      error: (_, _) => const AuthPlaceholderScreen(),
+      error: (_, _) => const AuthScreen(),
       data: (session) {
         if (session == null) {
-          return const AuthPlaceholderScreen();
+          return const AuthScreen();
         }
         return AppNavigationShell(session: session);
       },
-    );
-  }
-}
-
-class AuthPlaceholderScreen extends StatelessWidget {
-  const AuthPlaceholderScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: MoneyMateTheme.accent,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Masuk ke MoneyMate',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Foundation auth siap. Login screen akan dikerjakan di ticket berikutnya.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -400,7 +354,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          session.user.email ?? 'Email belum tersedia',
+                          session.user.email,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
