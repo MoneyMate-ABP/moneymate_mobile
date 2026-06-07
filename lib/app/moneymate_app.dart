@@ -5,6 +5,7 @@ import '../core/auth/auth_session.dart';
 import '../core/providers.dart';
 import 'auth_screen.dart';
 import 'theme/moneymate_theme.dart';
+import '../features/receipt/screens/receipt_capture_screen.dart';
 
 class MoneyMateApp extends ConsumerWidget {
   const MoneyMateApp({super.key});
@@ -171,50 +172,66 @@ class TransactionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Transaksi', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          Text(
-            'Lihat transaksi masuk dan keluar dengan mudah.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: ListView.separated(
-              itemCount: 3,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: MoneyMateTheme.accent.withOpacity(0.18),
-                      child: Icon(
-                        Icons.swap_horiz,
-                        color: MoneyMateTheme.accent,
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const ReceiptCaptureScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.receipt_long_rounded),
+        label: const Text('Scan Struk'),
+        backgroundColor: MoneyMateTheme.accent,
+        foregroundColor: Colors.white,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Transaksi', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 12),
+            Text(
+              'Lihat transaksi masuk dan keluar dengan mudah.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: ListView.separated(
+                itemCount: 3,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  return Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: MoneyMateTheme.accent.withValues(alpha: 0.18),
+                        child: Icon(
+                          Icons.swap_horiz,
+                          color: MoneyMateTheme.accent,
+                        ),
+                      ),
+                      title: Text(
+                        'Transaksi ${index + 1}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      subtitle: Text(
+                        'Ringkasan transaksi terbaru',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      trailing: Text(
+                        '-Rp ${(index + 1) * 120_000}',
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),
-                    title: Text(
-                      'Transaksi ${index + 1}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    subtitle: Text(
-                      'Ringkasan transaksi terbaru',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    trailing: Text(
-                      '-Rp ${(index + 1) * 120_000}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -396,7 +413,7 @@ class _CategoryTile extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: color.withOpacity(0.2),
+          backgroundColor: color.withValues(alpha: 0.2),
           child: Icon(Icons.label, color: color),
         ),
         title: Text(title, style: Theme.of(context).textTheme.titleMedium),
