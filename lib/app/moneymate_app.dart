@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/auth/auth_session.dart';
 import '../core/providers.dart';
+import '../features/dashboard/providers.dart';
+import '../features/dashboard/widgets/dashboard_summary_card.dart';
 import 'auth_screen.dart';
 import 'theme/moneymate_theme.dart';
 import '../features/receipt/screens/receipt_capture_screen.dart';
@@ -112,53 +114,52 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
   }
 }
 
-class DashboardScreen extends StatelessWidget {
+/// FLT-302: Dashboard screen dengan ringkasan saldo, pemasukan,
+/// pengeluaran, pengeluaran hari ini, dan sisa saldo hari ini.
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({required this.session, super.key});
 
   final AuthSession session;
 
   @override
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  Future<void> _onRefresh() async {
+    ref.invalidate(dashboardProvider);
+    // Tunggu provider selesai refresh.
+    await ref.read(dashboardSummaryProvider.future).catchError((_) {});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Dashboard', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          Text(
-            'Halo, ${session.user.name}. Selamat datang kembali di MoneyMate.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Ringkasan Keuangan',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Saldo, pengeluaran, dan pemasukan akan muncul di sini.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.show_chart,
-                    color: MoneyMateTheme.accent,
-                    size: 32,
-                  ),
-                ],
-              ),
+    return RefreshIndicator(
+      color: MoneyMateTheme.accent,
+      backgroundColor: MoneyMateTheme.surface,
+      onRefresh: _onRefresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // ---- Header -----------------------------------------------
+                Text(
+                  'MoneyMate Dashboard',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Halo, ${widget.session.user.name}. Selamat datang kembali! 👋',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 24),
+                // ---- FLT-302: Summary Card ---------------------------------
+                const DashboardSummaryCard(),
+                const SizedBox(height: 32),
+              ]),
             ),
           ),
         ],
