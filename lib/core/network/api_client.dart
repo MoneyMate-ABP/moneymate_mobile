@@ -103,6 +103,30 @@ class ApiClient {
     );
   }
 
+  Future<ApiResponse> put(
+    String path, {
+    Object? body,
+    Map<String, Object?> queryParameters = const {},
+  }) {
+    return request(
+      'PUT',
+      path,
+      body: body,
+      queryParameters: queryParameters,
+    );
+  }
+
+  Future<ApiResponse> delete(
+    String path, {
+    Map<String, Object?> queryParameters = const {},
+  }) {
+    return request(
+      'DELETE',
+      path,
+      queryParameters: queryParameters,
+    );
+  }
+
   Future<ApiResponse> request(
     String method,
     String path, {

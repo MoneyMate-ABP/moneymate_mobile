@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/auth/auth_session.dart';
 import '../core/providers.dart';
+import '../features/budget/screens/budget_screen.dart';
 import '../features/dashboard/providers.dart';
 import '../features/dashboard/widgets/dashboard_summary_card.dart';
 import 'auth_screen.dart';
@@ -238,53 +239,6 @@ class TransactionsScreen extends StatelessWidget {
   }
 }
 
-class BudgetScreen extends StatelessWidget {
-  const BudgetScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Budget', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          Text(
-            'Atur anggaran bulanan dan pantau batas pengeluaran Anda.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Budget Bulanan',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 10),
-                  LinearProgressIndicator(
-                    value: 0.64,
-                    color: MoneyMateTheme.accent,
-                    backgroundColor: Colors.white12,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '64% digunakan dari anggaran Rp 3.000.000',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
