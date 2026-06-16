@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/moneymate_theme.dart';
 import '../models/models.dart';
 import '../providers.dart';
+import 'budget_form_screen.dart';
+import 'daily_status_screen.dart';
 
 /// FLT-303: Budget Management Screen.
 ///
@@ -27,20 +29,35 @@ class BudgetScreen extends ConsumerStatefulWidget {
 class _BudgetScreenState extends ConsumerState<BudgetScreen> {
   Future<void> _onRefresh() async {
     ref.invalidate(budgetPeriodsProvider);
-    await ref.read(budgetPeriodsProvider.future).catchError((_) {});
+    try {
+      await ref.read(budgetPeriodsProvider.future);
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(budgetPeriodsProvider);
 
-    return RefreshIndicator(
-      color: MoneyMateTheme.accent,
-      backgroundColor: MoneyMateTheme.surface,
-      onRefresh: _onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const BudgetFormScreen(),
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
+      body: RefreshIndicator(
+        color: MoneyMateTheme.accent,
+        backgroundColor: MoneyMateTheme.surface,
+        onRefresh: _onRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
             sliver: SliverList(
@@ -81,8 +98,10 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 }
 
 // ---------------------------------------------------------------------------
@@ -310,19 +329,29 @@ class _BudgetCard extends ConsumerWidget {
     final mutationState = ref.watch(budgetPeriodMutationProvider);
     final isMutating = mutationState.isLoading;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: budget.isDefault
-              ? MoneyMateTheme.accent.withValues(alpha: 0.6)
-              : MoneyMateTheme.border,
-          width: budget.isDefault ? 1.5 : 1,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DailyStatusScreen(budgetPeriodId: budget.id),
+          ),
+        );
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: budget.isDefault
+                ? MoneyMateTheme.accent.withValues(alpha: 0.6)
+                : MoneyMateTheme.border,
+            width: budget.isDefault ? 1.5 : 1,
+          ),
+          color: Colors.white.withValues(alpha: 0.04),
         ),
-        color: Colors.white.withValues(alpha: 0.04),
-      ),
-      child: Column(
+        child: Column(
+
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ---- Header -------------------------------------------------------
@@ -410,9 +439,11 @@ class _BudgetCard extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
 }
+}
+
 
 // ---------------------------------------------------------------------------
 // Budget Card Action Menu
@@ -475,7 +506,15 @@ class _ActionsMenu extends ConsumerWidget {
       case _BudgetAction.setDefault:
         await _doSetDefault(context, ref, notifier);
       case _BudgetAction.edit:
-        if (context.mounted) _showEditSheet(context, ref);
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BudgetFormScreen(budget: budget),
+            ),
+          );
+        }
+
       case _BudgetAction.delete:
         if (context.mounted) _showDeleteDialog(context, ref, notifier);
     }
@@ -560,17 +599,7 @@ class _ActionsMenu extends ConsumerWidget {
     );
   }
 
-  void _showEditSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: MoneyMateTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _EditBudgetSheet(budget: budget),
-    );
-  }
+
 
   void _showSnackBar(BuildContext context, String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -684,7 +713,7 @@ class _EditBudgetSheetState extends ConsumerState<_EditBudgetSheet> {
 
     await ref
         .read(budgetPeriodMutationProvider.notifier)
-        .update(widget.budget.id, request);
+        .updateBudgetPeriod(widget.budget.id, request);
 
     if (mounted) {
       setState(() => _saving = false);
@@ -776,7 +805,7 @@ class _EditBudgetSheetState extends ConsumerState<_EditBudgetSheet> {
           const SizedBox(height: 14),
           // Budget system
           DropdownButtonFormField<String>(
-            value: _budgetSystem,
+            initialValue: _budgetSystem,
             dropdownColor: MoneyMateTheme.surface,
             decoration: const InputDecoration(labelText: 'Sistem Budget'),
             items: const [

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -49,11 +50,26 @@ class ReceiptCaptureService {
     return _saveAndBuild(xFile, ReceiptSource.gallery);
   }
 
+  /// Opens the device gallery to pick multiple images.
+  Future<List<ReceiptImage>> pickMultipleFromGallery() async {
+    final xFiles = await _picker.pickMultiImage(
+      imageQuality: _imageQuality,
+      maxWidth: _maxWidth,
+    );
+    final results = <ReceiptImage>[];
+    for (final xFile in xFiles) {
+      final receipt = await _saveAndBuild(xFile, ReceiptSource.gallery);
+      results.add(receipt);
+    }
+    return results;
+  }
+
   /// Deletes the backing file for the given [receipt].
   ///
   /// Returns `true` if the file was successfully deleted, `false` if it
   /// did not exist.
   Future<bool> deleteReceipt(ReceiptImage receipt) async {
+    if (kIsWeb) return true;
     final file = receipt.file;
     if (await file.exists()) {
       await file.delete();
@@ -69,12 +85,24 @@ class ReceiptCaptureService {
   /// Copies the picked/captured [xFile] into the app's documents directory
   /// and returns a fully-populated [ReceiptImage].
   Future<ReceiptImage> _saveAndBuild(XFile xFile, ReceiptSource source) async {
-    final dir = await _receiptDirectory();
     final id = _generateId();
+    final bytes = await xFile.readAsBytes();
+
+    if (kIsWeb) {
+      return ReceiptImage(
+        id: id,
+        filePath: xFile.path,
+        capturedAt: DateTime.now(),
+        source: source,
+        bytes: bytes,
+        webExtension: p.extension(xFile.name).isNotEmpty ? p.extension(xFile.name) : '.jpg',
+      );
+    }
+
+    final dir = await _receiptDirectory();
     final ext = p.extension(xFile.path).isNotEmpty ? p.extension(xFile.path) : '.jpg';
     final savedPath = p.join(dir.path, '$id$ext');
 
-    final bytes = await xFile.readAsBytes();
     final savedFile = File(savedPath);
     await savedFile.writeAsBytes(bytes);
 
@@ -83,6 +111,7 @@ class ReceiptCaptureService {
       filePath: savedPath,
       capturedAt: DateTime.now(),
       source: source,
+      bytes: bytes,
     );
   }
 

@@ -41,3 +41,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
     onUnauthorized: authController.clearSession,
   );
 });
+
+/// State provider for bottom navigation active index.
+final navigationIndexProvider = StateProvider<int>((ref) => 0);
+

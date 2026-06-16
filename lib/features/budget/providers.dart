@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../dashboard/models/dashboard_daily_status.dart';
 import 'models/models.dart';
 import 'repositories/budget_period_repository.dart';
 
@@ -56,7 +57,7 @@ final budgetPeriodsProvider =
 /// final notifier = ref.read(budgetPeriodMutationProvider.notifier);
 /// await notifier.delete(id);
 /// await notifier.setDefault(id);
-/// await notifier.update(id, request);
+/// await notifier.updateBudgetPeriod(id, request);
 /// ```
 class BudgetPeriodMutationNotifier extends AsyncNotifier<void> {
   @override
@@ -84,7 +85,7 @@ class BudgetPeriodMutationNotifier extends AsyncNotifier<void> {
   }
 
   /// Memperbarui budget period [id] dan me-refresh list.
-  Future<void> update(int id, UpdateBudgetPeriodRequest request) async {
+  Future<void> updateBudgetPeriod(int id, UpdateBudgetPeriodRequest request) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       await _repo.updateBudgetPeriod(id, request);
@@ -97,3 +98,15 @@ final budgetPeriodMutationProvider =
     AsyncNotifierProvider<BudgetPeriodMutationNotifier, void>(
   BudgetPeriodMutationNotifier.new,
 );
+
+/// Mengambil ringkasan tabungan (invest/savings) dari server.
+final investSavingsProvider = FutureProvider<InvestSavingsSummary>((ref) async {
+  final repo = ref.watch(budgetPeriodRepositoryProvider);
+  return repo.getInvestSavingsSummary();
+});
+
+/// Mengambil daily statuses untuk budget period tertentu.
+final budgetDailyStatusesProvider = FutureProvider.family<List<DashboardDailyStatus>, int>((ref, id) async {
+  final repo = ref.watch(budgetPeriodRepositoryProvider);
+  return repo.getBudgetDailyStatuses(id);
+});

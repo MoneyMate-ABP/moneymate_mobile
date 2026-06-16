@@ -9,6 +9,7 @@ import '../widgets/month_selector.dart';
 import '../widgets/transaction_filter_sheet.dart';
 import '../widgets/transaction_list_content.dart';
 import '../../receipt/screens/receipt_capture_screen.dart';
+import 'transaction_form_screen.dart';
 
 // ---------------------------------------------------------------------------
 // State providers
@@ -112,19 +113,40 @@ class TransactionListScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const ReceiptCaptureScreen(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.receipt_long_rounded),
-        label: const Text('Scan Struk'),
-        backgroundColor: MoneyMateTheme.accent,
-        foregroundColor: Colors.white,
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: 'add_tx_manual',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const TransactionFormScreen(),
+                ),
+              );
+            },
+            backgroundColor: MoneyMateTheme.accent,
+            foregroundColor: Colors.white,
+            child: const Icon(Icons.add),
+          ),
+          const SizedBox(width: 12),
+          FloatingActionButton.extended(
+            heroTag: 'scan_receipt',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ReceiptCaptureScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.receipt_long_rounded),
+            label: const Text('Scan Struk'),
+            backgroundColor: MoneyMateTheme.accent,
+            foregroundColor: Colors.white,
+          ),
+        ],
       ),
+
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

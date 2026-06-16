@@ -4,11 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/auth/auth_session.dart';
 import '../core/providers.dart';
 import '../features/budget/screens/budget_screen.dart';
+import '../features/categories/screens/categories_screen.dart';
 import '../features/dashboard/providers.dart';
+import '../features/dashboard/widgets/budget_status_list.dart';
 import '../features/dashboard/widgets/dashboard_summary_card.dart';
+import '../features/dashboard/widgets/recent_transactions.dart';
+import '../features/profile/screens/profile_screen.dart';
 import 'auth_screen.dart';
 import 'theme/moneymate_theme.dart';
 import '../features/transactions/screens/transaction_list_screen.dart';
+import '../features/notification/providers.dart';
+import '../features/notification/screens/notification_history_screen.dart';
+
 
 class MoneyMateApp extends ConsumerWidget {
   const MoneyMateApp({super.key});
@@ -46,18 +53,16 @@ class BootstrapScreen extends ConsumerWidget {
   }
 }
 
-class AppNavigationShell extends StatefulWidget {
+class AppNavigationShell extends ConsumerStatefulWidget {
   const AppNavigationShell({required this.session, super.key});
 
   final AuthSession session;
 
   @override
-  State<AppNavigationShell> createState() => _AppNavigationShellState();
+  ConsumerState<AppNavigationShell> createState() => _AppNavigationShellState();
 }
 
-class _AppNavigationShellState extends State<AppNavigationShell> {
-  int _currentIndex = 0;
-
+class _AppNavigationShellState extends ConsumerState<AppNavigationShell> {
   static const List<NavigationDestination> _destinations = [
     NavigationDestination(
       icon: Icon(Icons.dashboard_outlined),
@@ -90,23 +95,23 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
     DashboardScreen(session: widget.session),
     const TransactionListScreen(),
     BudgetScreen(),
-    CategoriesScreen(),
+    const CategoriesScreen(),
     ProfileScreen(session: widget.session),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(navigationIndexProvider);
+
     return Scaffold(
       body: SafeArea(
-        child: IndexedStack(index: _currentIndex, children: _pages),
+        child: IndexedStack(index: currentIndex, children: _pages),
       ),
       bottomNavigationBar: NavigationBar(
         height: 74,
-        selectedIndex: _currentIndex,
+        selectedIndex: currentIndex,
         onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
+          ref.read(navigationIndexProvider.notifier).state = index;
         },
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: _destinations,
@@ -114,6 +119,7 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
     );
   }
 }
+
 
 /// FLT-302: Dashboard screen dengan ringkasan saldo, pemasukan,
 /// pengeluaran, pengeluaran hari ini, dan sisa saldo hari ini.
@@ -129,8 +135,11 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _onRefresh() async {
     ref.invalidate(dashboardProvider);
+    ref.invalidate(notificationHistoryProvider);
     // Tunggu provider selesai refresh.
-    await ref.read(dashboardSummaryProvider.future).catchError((_) {});
+    try {
+      await ref.read(dashboardSummaryProvider.future);
+    } catch (_) {}
   }
 
   @override
@@ -147,9 +156,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // ---- Header -----------------------------------------------
-                Text(
-                  'MoneyMate Dashboard',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'MoneyMate Dashboard',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const _NotificationBellButton(),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -159,6 +174,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const SizedBox(height: 24),
                 // ---- FLT-302: Summary Card ---------------------------------
                 const DashboardSummaryCard(),
+                const BudgetStatusList(),
+                const RecentTransactions(),
                 const SizedBox(height: 32),
               ]),
             ),
@@ -169,144 +186,61 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
+
 // TransactionsScreen is now TransactionListScreen (see features/transactions/screens/).
 
-
-class CategoriesScreen extends StatelessWidget {
-  const CategoriesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Kategori', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          Text(
-            'Pengelompokan kategori pemasukan dan pengeluaran.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: ListView(
-              children: [
-                _CategoryTile(
-                  title: 'Gaji',
-                  type: 'Pemasukan',
-                  color: MoneyMateTheme.success,
-                ),
-                const SizedBox(height: 12),
-                _CategoryTile(
-                  title: 'Makanan',
-                  type: 'Pengeluaran',
-                  color: MoneyMateTheme.danger,
-                ),
-                const SizedBox(height: 12),
-                _CategoryTile(
-                  title: 'Transport',
-                  type: 'Pengeluaran',
-                  color: MoneyMateTheme.warning,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({required this.session, super.key});
-
-  final AuthSession session;
+class _NotificationBellButton extends ConsumerWidget {
+  const _NotificationBellButton();
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Profil', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: MoneyMateTheme.accent,
-                    child: Text(
-                      session.user.name.isNotEmpty
-                          ? session.user.name[0].toUpperCase()
-                          : 'U',
-                      style: const TextStyle(color: Colors.white, fontSize: 24),
-                    ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Trigger initial notification fetch
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 24),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const NotificationHistoryScreen(),
+              ),
+            );
+          },
+        ),
+        if (unreadCount > 0)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: MoneyMateTheme.danger,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Center(
+                child: Text(
+                  unreadCount > 9 ? '9+' : '$unreadCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          session.user.name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          session.user.email,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
-              subtitle: const Text('Keluar dari akun Anda'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({
-    required this.title,
-    required this.type,
-    required this.color,
-  });
 
-  final String title;
-  final String type;
-  final Color color;
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.2),
-          child: Icon(Icons.label, color: color),
-        ),
-        title: Text(title, style: Theme.of(context).textTheme.titleMedium),
-        subtitle: Text(type, style: Theme.of(context).textTheme.bodySmall),
-        trailing: const Icon(Icons.chevron_right),
-      ),
-    );
-  }
-}
+
