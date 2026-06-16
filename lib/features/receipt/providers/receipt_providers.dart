@@ -5,6 +5,7 @@ import '../models/receipt_image.dart';
 import '../models/receipt_scan_result.dart';
 import '../repositories/receipt_scan_repository.dart';
 import '../services/receipt_capture_service.dart';
+import '../services/receipt_compressor.dart';
 
 // ---------------------------------------------------------------------------
 // Capture service provider
@@ -91,12 +92,21 @@ final receiptScanRepositoryProvider = Provider<ReceiptScanRepository>((ref) {
 });
 
 // ---------------------------------------------------------------------------
+// Receipt compressor provider
+// ---------------------------------------------------------------------------
+
+/// Provides a singleton [ReceiptCompressor].
+final receiptCompressorProvider = Provider<ReceiptCompressor>((ref) {
+  return const ReceiptCompressor();
+});
+
+// ---------------------------------------------------------------------------
 // Receipt scan state
 // ---------------------------------------------------------------------------
 
 /// Represents the current state of a receipt scan upload.
 ///
-/// Transitions: `idle` → `uploading` → `success` | `error` → `idle`
+/// Transitions: `idle` → `compressing` → `uploading` → `success` | `error` → `idle`
 sealed class ReceiptScanState {
   const ReceiptScanState();
 }
@@ -104,6 +114,11 @@ sealed class ReceiptScanState {
 /// No scan in progress.
 class ReceiptScanIdle extends ReceiptScanState {
   const ReceiptScanIdle();
+}
+
+/// Image is being compressed before upload.
+class ReceiptScanCompressing extends ReceiptScanState {
+  const ReceiptScanCompressing();
 }
 
 /// Upload is in progress. [progress] is 0.0–1.0.
@@ -135,6 +150,7 @@ class ReceiptScanError extends ReceiptScanState {
 /// final scanState = ref.watch(receiptScanProvider);
 /// switch (scanState) {
 ///   case ReceiptScanIdle():     // show default UI
+///   case ReceiptScanCompressing():                 // show compressing indicator
 ///   case ReceiptScanUploading(progress: final p): // show progress
 ///   case ReceiptScanSuccess(result: final r):     // navigate to form
 ///   case ReceiptScanError(message: final m):      // show error
@@ -146,22 +162,30 @@ class ReceiptScanError extends ReceiptScanState {
 final receiptScanProvider =
     StateNotifierProvider<ReceiptScanNotifier, ReceiptScanState>((ref) {
   final repository = ref.watch(receiptScanRepositoryProvider);
-  return ReceiptScanNotifier(repository);
+  final compressor = ref.watch(receiptCompressorProvider);
+  return ReceiptScanNotifier(repository, compressor);
 });
 
 class ReceiptScanNotifier extends StateNotifier<ReceiptScanState> {
-  ReceiptScanNotifier(this._repository) : super(const ReceiptScanIdle());
+  ReceiptScanNotifier(this._repository, this._compressor)
+      : super(const ReceiptScanIdle());
 
   final ReceiptScanRepository _repository;
+  final ReceiptCompressor _compressor;
 
-  /// Uploads the receipt [image] file and transitions the state through
-  /// `uploading` → `success` | `error`.
+  /// Compresses (if needed) and uploads the receipt [image] file.
+  ///
+  /// State transitions: `compressing` → `uploading` → `success` | `error`.
   Future<void> scan(ReceiptImage image) async {
-    state = const ReceiptScanUploading();
-
     try {
+      // --- Phase 1: Compress image if over 10 MB ---
+      state = const ReceiptScanCompressing();
+      final fileToUpload = await _compressor.compressIfNeeded(image.file);
+
+      // --- Phase 2: Upload ---
+      state = const ReceiptScanUploading();
       final result = await _repository.scanReceipt(
-        image.file,
+        fileToUpload,
         onSendProgress: (sent, total) {
           if (total > 0) {
             state = ReceiptScanUploading(progress: sent / total);
@@ -171,6 +195,8 @@ class ReceiptScanNotifier extends StateNotifier<ReceiptScanState> {
       state = ReceiptScanSuccess(result);
     } on ArgumentError catch (e) {
       state = ReceiptScanError(e.message?.toString() ?? 'Validasi gagal.');
+    } on StateError catch (e) {
+      state = ReceiptScanError(e.message);
     } on FormatException catch (e) {
       state = ReceiptScanError(e.message);
     } catch (e) {
