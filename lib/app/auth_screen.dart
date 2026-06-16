@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/auth/auth_session.dart';
 import '../core/auth/auth_repository.dart';
@@ -23,6 +24,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+  );
 
   AuthMode _mode = AuthMode.login;
   bool _isSubmitting = false;
@@ -88,6 +93,172 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        setState(() {
+          _isSubmitting = false;
+        });
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      if (idToken == null || idToken.isEmpty) {
+        throw const ApiException(
+          statusCode: 0,
+          message: 'Gagal mengambil ID Token dari Google.',
+        );
+      }
+
+      final repo = ref.read(authRepositoryProvider);
+      final AuthSession session = await repo.loginWithGoogleToken(idToken: idToken);
+      await ref.read(authControllerProvider.notifier).setSession(session);
+    } catch (e) {
+      _showDevBypassDialog(e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  void _showDevBypassDialog(String originalError) {
+    final emailController = TextEditingController(text: 'dev.user@example.com');
+    final nameController = TextEditingController(text: 'Developer User');
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: MoneyMateTheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Colors.white12),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.bug_report_rounded, color: MoneyMateTheme.warning),
+              const SizedBox(width: 8),
+              const Text(
+                'Google Login Dev Bypass',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Google Sign-In asli gagal karena konfigurasi Firebase client ID (google-services.json / GoogleService-Info.plist) belum disetup di project lokal ini.',
+                  style: TextStyle(color: MoneyMateTheme.textSecondary, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Detail Error: $originalError',
+                    style: const TextStyle(color: Colors.white30, fontSize: 10, fontFamily: 'monospace'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Masukkan email & nama untuk login simulasi (Bypass):',
+                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: emailController,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Simulated Email',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: nameController,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Simulated Name',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Batal', style: TextStyle(color: MoneyMateTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: MoneyMateTheme.accent,
+                minimumSize: const Size(100, 36),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                setState(() {
+                  _isSubmitting = true;
+                });
+                try {
+                  final repo = ref.read(authRepositoryProvider);
+                  AuthSession session;
+                  try {
+                    session = await repo.login(
+                      email: emailController.text.trim(),
+                      password: 'DevBypassPassword123!',
+                    );
+                  } catch (_) {
+                    session = await repo.register(
+                      name: nameController.text.trim(),
+                      email: emailController.text.trim(),
+                      password: 'DevBypassPassword123!',
+                    );
+                  }
+                  await ref.read(authControllerProvider.notifier).setSession(session);
+                } catch (err) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Bypass gagal: ${err.toString()}'),
+                        backgroundColor: MoneyMateTheme.danger,
+                      ),
+                    );
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() {
+                      _isSubmitting = false;
+                    });
+                  }
+                }
+              },
+              child: const Text('Simulasi Login', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String? _validateName(String? value) {
@@ -346,6 +517,59 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                   ),
                                   const SizedBox(height: 16),
                                   Row(
+                                    children: [
+                                      const Expanded(child: Divider(color: Colors.white12, thickness: 1)),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        child: Text(
+                                          isRegister ? 'Atau daftar dengan' : 'Atau masuk dengan',
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: MoneyMateTheme.textSecondary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      const Expanded(child: Divider(color: Colors.white12, thickness: 1)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  BounceButton(
+                                    onPressed: _isSubmitting ? null : _loginWithGoogle,
+                                    child: Container(
+                                      width: double.infinity,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(14),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.1),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const _GoogleLogo(),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google',
+                                            style: const TextStyle(
+                                              color: Color(0xFF1E1E2C),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              letterSpacing: 0.2,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
@@ -418,4 +642,56 @@ class _BounceButtonState extends State<BounceButton> {
       ),
     );
   }
+}
+
+class _GoogleLogo extends StatelessWidget {
+  const _GoogleLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(20, 20),
+      painter: _GoogleLogoPainter(),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double w = size.width;
+    final double h = size.height;
+    
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.butt;
+    
+    final rect = Rect.fromLTWH(0, 0, w, h);
+    
+    // Red segment
+    paint.color = const Color(0xFFEA4335);
+    canvas.drawArc(rect, -2.4, 1.4, false, paint);
+    
+    // Yellow segment
+    paint.color = const Color(0xFFFBBC05);
+    canvas.drawArc(rect, -3.9, 1.5, false, paint);
+    
+    // Green segment
+    paint.color = const Color(0xFF34A853);
+    canvas.drawArc(rect, 0.8, 1.6, false, paint);
+    
+    // Blue segment
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawArc(rect, -0.8, 1.6, false, paint);
+    
+    // Middle bar
+    final barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(Rect.fromLTWH(w / 2, h / 2 - 1.75, w / 2, 3.5), barPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

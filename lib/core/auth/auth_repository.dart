@@ -86,6 +86,43 @@ class AuthRepository {
     final user = AuthUser.fromJson(userJson);
     return AuthSession(token: token, user: user);
   }
+
+  Future<AuthSession> loginWithGoogleToken({
+    required String idToken,
+  }) async {
+    final response = await _apiClient.post(
+      '/api/auth/google',
+      body: {'idToken': idToken},
+    );
+
+    if (response.body is! Map<String, dynamic>) {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Respons autentikasi Google tidak valid.',
+      );
+    }
+
+    final body = response.body as Map<String, dynamic>;
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Data autentikasi Google tidak ditemukan.',
+      );
+    }
+
+    final token = data['token'] as String?;
+    final userJson = data['user'];
+    if (token == null || token.isEmpty || userJson is! Map<String, dynamic>) {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Respons Google login tidak lengkap.',
+      );
+    }
+
+    final user = AuthUser.fromJson(userJson);
+    return AuthSession(token: token, user: user);
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

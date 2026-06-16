@@ -3,13 +3,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/moneymate_theme.dart';
 import '../../../core/auth/auth_session.dart';
 import '../../../core/providers.dart';
+import '../../../core/notification/notification_service.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({required this.session, super.key});
 
   final AuthSession session;
 
-  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _notificationsEnabled = true;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationSettings();
+  }
+
+  Future<void> _loadNotificationSettings() async {
+    final enabled = await NotificationService.instance.areNotificationsEnabled();
+    if (mounted) {
+      setState(() {
+        _notificationsEnabled = enabled;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _toggleNotifications(bool value) async {
+    setState(() {
+      _notificationsEnabled = value;
+    });
+    await NotificationService.instance.setNotificationsEnabled(value);
+  }
+
+  Future<void> _logout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -32,12 +64,11 @@ class ProfileScreen extends ConsumerWidget {
 
     if (confirmed == true) {
       await ref.read(authControllerProvider.notifier).clearSession();
-      // Auth bootstrap listener will automatically route back to AuthScreen
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -61,8 +92,8 @@ class ProfileScreen extends ConsumerWidget {
                         radius: 28,
                         backgroundColor: MoneyMateTheme.accent,
                         child: Text(
-                          session.user.name.isNotEmpty
-                              ? session.user.name[0].toUpperCase()
+                          widget.session.user.name.isNotEmpty
+                              ? widget.session.user.name[0].toUpperCase()
                               : 'U',
                           style: const TextStyle(
                             color: Colors.white,
@@ -77,14 +108,14 @@ class ProfileScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              session.user.name,
+                              widget.session.user.name,
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              session.user.email,
+                              widget.session.user.email,
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: MoneyMateTheme.textSecondary,
                                   ),
@@ -98,6 +129,29 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
 
+              // Notification Settings Card
+              Card(
+                child: SwitchListTile(
+                  secondary: Icon(
+                    _notificationsEnabled
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_off_rounded,
+                    color: _notificationsEnabled
+                        ? MoneyMateTheme.accent
+                        : MoneyMateTheme.textSecondary,
+                  ),
+                  title: const Text(
+                    'Pengingat Harian',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text('Push notification jam 08:00 pagi'),
+                  value: _notificationsEnabled,
+                  onChanged: _isLoading ? null : _toggleNotifications,
+                  activeColor: MoneyMateTheme.accent,
+                ),
+              ),
+              const SizedBox(height: 12),
+
               // Logout Row
               Card(
                 child: ListTile(
@@ -108,7 +162,7 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   subtitle: const Text('Keluar dari akun Anda'),
                   trailing: const Icon(Icons.chevron_right, color: MoneyMateTheme.danger),
-                  onTap: () => _logout(context, ref),
+                  onTap: () => _logout(context),
                 ),
               ),
             ],
