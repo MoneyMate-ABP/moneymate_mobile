@@ -6,9 +6,13 @@ import 'core/auth/auth_session.dart';
 import 'core/config/app_config.dart';
 import 'core/providers.dart';
 import 'core/storage/secure_key_value_storage.dart';
+import 'core/notification/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Notification Service (daily reminders)
+  await NotificationService.instance.initialize();
 
   final config = AppConfig.fromEnvironment();
   final sessionStore = AuthSessionStore(SecureKeyValueStorage());

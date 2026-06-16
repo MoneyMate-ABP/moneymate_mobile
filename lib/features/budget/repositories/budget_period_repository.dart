@@ -1,5 +1,6 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../dashboard/models/dashboard_daily_status.dart';
 import '../models/models.dart';
 
 /// Repository untuk keluarga `GET|PUT|DELETE|POST /api/budget-periods`.
@@ -166,4 +167,98 @@ class BudgetPeriodRepository {
 
     return BudgetPeriod.fromJson(rawData);
   }
+
+  // ---------------------------------------------------------------------------
+  // GET /api/budget-periods/invest-savings
+  // ---------------------------------------------------------------------------
+
+  /// Mengambil ringkasan tabungan dan periode investasi milik user.
+  Future<InvestSavingsSummary> getInvestSavingsSummary() async {
+    final response = await _apiClient.get('$_basePath/invest-savings');
+
+    final body = response.body;
+    if (body is! Map<String, dynamic>) {
+      throw const FormatException(
+        'BudgetPeriodRepository: unexpected response body from GET /api/budget-periods/invest-savings.',
+      );
+    }
+
+    final rawData = body['data'];
+    if (rawData is! Map<String, dynamic>) {
+      throw const FormatException(
+        'BudgetPeriodRepository: missing "data" key in GET /api/budget-periods/invest-savings response.',
+      );
+    }
+
+    return InvestSavingsSummary.fromJson(rawData);
+  }
+
+  // ---------------------------------------------------------------------------
+  // GET /api/budget-periods/:id/daily-status
+  // ---------------------------------------------------------------------------
+
+  /// Mengambil status harian dari budget period [id] untuk tanggal tertentu (default hari ini).
+  Future<DashboardDailyStatus> getBudgetDailyStatus(int id, {String? date}) async {
+    final response = await _apiClient.get(
+      '$_basePath/$id/daily-status',
+      queryParameters: {
+        if (date != null) 'date': date,
+      },
+    );
+
+    final body = response.body;
+    if (body is! Map<String, dynamic>) {
+      throw const FormatException(
+        'BudgetPeriodRepository: unexpected response body from GET /api/budget-periods/:id/daily-status.',
+      );
+    }
+
+    final rawData = body['data'];
+    if (rawData is! Map<String, dynamic>) {
+      throw const FormatException(
+        'BudgetPeriodRepository: missing "data" key in GET /api/budget-periods/:id/daily-status response.',
+      );
+    }
+
+    return DashboardDailyStatus.fromJson(rawData);
+  }
+
+  // ---------------------------------------------------------------------------
+  // GET /api/budget-periods/:id/daily-statuses
+  // ---------------------------------------------------------------------------
+
+  /// Mengambil list status harian dari budget period [id] untuk rentang tanggal tertentu.
+  Future<List<DashboardDailyStatus>> getBudgetDailyStatuses(
+    int id, {
+    String? startDate,
+    String? endDate,
+  }) async {
+    final response = await _apiClient.get(
+      '$_basePath/$id/daily-statuses',
+      queryParameters: {
+        if (startDate != null) 'start_date': startDate,
+        if (endDate != null) 'end_date': endDate,
+      },
+    );
+
+    final body = response.body;
+    if (body is! Map<String, dynamic>) {
+      throw const FormatException(
+        'BudgetPeriodRepository: unexpected response body from GET /api/budget-periods/:id/daily-statuses.',
+      );
+    }
+
+    final rawData = body['data'];
+    if (rawData is! List) {
+      throw const FormatException(
+        'BudgetPeriodRepository: unexpected "data" type in GET /api/budget-periods/:id/daily-statuses response.',
+      );
+    }
+
+    return rawData
+        .whereType<Map<String, dynamic>>()
+        .map(DashboardDailyStatus.fromJson)
+        .toList();
+  }
 }
+

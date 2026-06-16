@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers.dart';
@@ -80,6 +81,126 @@ class ReceiptListNotifier extends StateNotifier<List<ReceiptImage>> {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Mutation list provider
+// ---------------------------------------------------------------------------
+
+final mutationListProvider =
+    StateNotifierProvider<MutationListNotifier, List<ReceiptImage>>((ref) {
+  final service = ref.watch(receiptCaptureServiceProvider);
+  return MutationListNotifier(service);
+});
+
+class MutationListNotifier extends StateNotifier<List<ReceiptImage>> {
+  MutationListNotifier(this._service) : super(const []);
+  final ReceiptCaptureService _service;
+
+  Future<List<ReceiptImage>> addFromGallery() async {
+    final list = await _service.pickMultipleFromGallery();
+    if (list.isNotEmpty) {
+      state = [...state, ...list];
+    }
+    return list;
+  }
+
+  Future<void> remove(String id) async {
+    final target = state.where((r) => r.id == id).firstOrNull;
+    if (target != null) {
+      await _service.deleteReceipt(target);
+      state = state.where((r) => r.id != id).toList();
+    }
+  }
+
+  void clear() {
+    for (final item in state) {
+      _service.deleteReceipt(item);
+    }
+    state = const [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mutation scan state
+// ---------------------------------------------------------------------------
+
+sealed class MutationScanState {
+  const MutationScanState();
+}
+
+class MutationScanIdle extends MutationScanState {
+  const MutationScanIdle();
+}
+
+class MutationScanCompressing extends MutationScanState {
+  const MutationScanCompressing();
+}
+
+class MutationScanUploading extends MutationScanState {
+  const MutationScanUploading();
+}
+
+class MutationScanSuccess extends MutationScanState {
+  const MutationScanSuccess(this.results);
+  final List<ReceiptScanResult> results;
+}
+
+class MutationScanError extends MutationScanState {
+  const MutationScanError(this.message);
+  final String message;
+}
+
+final mutationScanProvider =
+    StateNotifierProvider<MutationScanNotifier, MutationScanState>((ref) {
+  final repository = ref.watch(receiptScanRepositoryProvider);
+  final compressor = ref.watch(receiptCompressorProvider);
+  return MutationScanNotifier(repository, compressor);
+});
+
+class MutationScanNotifier extends StateNotifier<MutationScanState> {
+  MutationScanNotifier(this._repository, this._compressor)
+      : super(const MutationScanIdle());
+
+  final ReceiptScanRepository _repository;
+  final ReceiptCompressor _compressor;
+
+  Future<void> scan(List<ReceiptImage> images) async {
+    if (images.isEmpty) {
+      state = const MutationScanError('Tidak ada gambar mutasi yang dipilih.');
+      return;
+    }
+
+    try {
+      final List<ReceiptImage> imagesToUpload;
+      if (kIsWeb) {
+        imagesToUpload = images;
+      } else {
+        state = const MutationScanCompressing();
+        imagesToUpload = [];
+        for (final img in images) {
+          final compressed = await _compressor.compressIfNeeded(img.file);
+          imagesToUpload.add(ReceiptImage(
+            id: img.id,
+            filePath: compressed.path,
+            capturedAt: img.capturedAt,
+            source: img.source,
+          ));
+        }
+      }
+
+      state = const MutationScanUploading();
+      final results = await _repository.scanMutation(imagesToUpload);
+      state = MutationScanSuccess(results);
+    } catch (e) {
+      state = MutationScanError(e.toString());
+    }
+  }
+
+  void reset() {
+    state = const MutationScanIdle();
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // Receipt scan repository provider
@@ -178,14 +299,25 @@ class ReceiptScanNotifier extends StateNotifier<ReceiptScanState> {
   /// State transitions: `compressing` → `uploading` → `success` | `error`.
   Future<void> scan(ReceiptImage image) async {
     try {
-      // --- Phase 1: Compress image if over 10 MB ---
-      state = const ReceiptScanCompressing();
-      final fileToUpload = await _compressor.compressIfNeeded(image.file);
+      final ReceiptImage imageToUpload;
+      if (kIsWeb) {
+        imageToUpload = image;
+      } else {
+        // --- Phase 1: Compress image if over 10 MB ---
+        state = const ReceiptScanCompressing();
+        final fileToUpload = await _compressor.compressIfNeeded(image.file);
+        imageToUpload = ReceiptImage(
+          id: image.id,
+          filePath: fileToUpload.path,
+          capturedAt: image.capturedAt,
+          source: image.source,
+        );
+      }
 
       // --- Phase 2: Upload ---
       state = const ReceiptScanUploading();
       final result = await _repository.scanReceipt(
-        fileToUpload,
+        imageToUpload,
         onSendProgress: (sent, total) {
           if (total > 0) {
             state = ReceiptScanUploading(progress: sent / total);

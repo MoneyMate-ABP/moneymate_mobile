@@ -1,10 +1,10 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../models/receipt_image.dart';
 import '../models/receipt_scan_result.dart';
 
 /// Repository for `POST /api/transactions/receipt-scan`.
@@ -37,7 +37,7 @@ class ReceiptScanRepository {
 
   final ApiClient _apiClient;
 
-  /// Uploads a receipt [file] (image or PDF) and returns the AI-parsed result.
+  /// Uploads a receipt [receipt] (image or PDF) and returns the AI-parsed result.
   ///
   /// Throws [ApiException] on HTTP errors (e.g. 413 file too large, 422
   /// unsupported format, 500 AI failure).
@@ -48,22 +48,37 @@ class ReceiptScanRepository {
   /// The optional [onSendProgress] callback receives `(sent, total)` byte
   /// counts and can be used to drive a progress indicator.
   Future<ReceiptScanResult> scanReceipt(
-    File file, {
+    ReceiptImage receipt, {
     void Function(int sent, int total)? onSendProgress,
   }) async {
     // ---- Client-side validation ----
-    _validateFile(file);
+    _validateFile(receipt);
 
     // ---- Build multipart form ----
-    final ext = p.extension(file.path).toLowerCase();
+    final ext = receipt.ext;
     final contentType = _resolveContentType(ext);
+    final filename = p.basename(receipt.filePath);
+
+    final MultipartFile multipartFile;
+    if (kIsWeb) {
+      if (receipt.bytes == null) {
+        throw ArgumentError('Bytes gambar kosong.');
+      }
+      multipartFile = MultipartFile.fromBytes(
+        receipt.bytes!,
+        filename: filename,
+        contentType: DioMediaType.parse(contentType),
+      );
+    } else {
+      multipartFile = await MultipartFile.fromFile(
+        receipt.filePath,
+        filename: filename,
+        contentType: DioMediaType.parse(contentType),
+      );
+    }
 
     final formData = FormData.fromMap({
-      'receipt': await MultipartFile.fromFile(
-        file.path,
-        filename: p.basename(file.path),
-        contentType: DioMediaType.parse(contentType),
-      ),
+      'receipt': multipartFile,
     });
 
     // ---- Execute upload ----
@@ -92,11 +107,113 @@ class ReceiptScanRepository {
     }
   }
 
+  /// Uploads multiple bank mutation screenshots and returns AI-parsed draft transactions.
+  Future<List<ReceiptScanResult>> scanMutation(
+    List<ReceiptImage> receipts, {
+    void Function(int sent, int total)? onSendProgress,
+  }) async {
+    for (final receipt in receipts) {
+      _validateFile(receipt);
+    }
+
+    final formData = FormData();
+    for (final receipt in receipts) {
+      final ext = receipt.ext;
+      final contentType = _resolveContentType(ext);
+      final filename = p.basename(receipt.filePath);
+
+      final MultipartFile multipartFile;
+      if (kIsWeb) {
+        if (receipt.bytes == null) {
+          throw ArgumentError('Bytes gambar kosong.');
+        }
+        multipartFile = MultipartFile.fromBytes(
+          receipt.bytes!,
+          filename: filename,
+          contentType: DioMediaType.parse(contentType),
+        );
+      } else {
+        multipartFile = await MultipartFile.fromFile(
+          receipt.filePath,
+          filename: filename,
+          contentType: DioMediaType.parse(contentType),
+        );
+      }
+
+      formData.files.add(
+        MapEntry(
+          'receipts',
+          multipartFile,
+        ),
+      );
+    }
+
+    try {
+      final response = await _apiClient.dio.post<Object?>(
+        '/api/transactions/mutation-scan',
+        data: formData,
+        onSendProgress: onSendProgress,
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+      final body = response.data;
+      if (body is! Map<String, dynamic>) {
+        throw const FormatException(
+          'ReceiptScanRepository: unexpected response body from POST /api/transactions/mutation-scan.',
+        );
+      }
+
+      final rawData = body['data'];
+      if (rawData is! List) {
+        throw const FormatException(
+          'ReceiptScanRepository: missing or invalid "data" key in POST /api/transactions/mutation-scan response.',
+        );
+      }
+
+      return rawData
+          .whereType<Map<String, dynamic>>()
+          .map(ReceiptScanResult.fromJson)
+          .toList();
+    } on DioException catch (error) {
+      throw ApiException(
+        statusCode: error.response?.statusCode,
+        message: _extractErrorMessage(error),
+        data: error.response?.data,
+      );
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Validation helpers
   // ---------------------------------------------------------------------------
 
-  void _validateFile(File file) {
+  void _validateFile(ReceiptImage receipt) {
+    if (kIsWeb) {
+      final bytes = receipt.bytes;
+      if (bytes == null) {
+        throw ArgumentError('File tidak ditemukan.');
+      }
+      if (bytes.length > maxFileSize) {
+        final sizeMb = (bytes.length / (1024 * 1024)).toStringAsFixed(1);
+        throw ArgumentError(
+          'Ukuran file terlalu besar ($sizeMb MB). Maksimal 10 MB.',
+        );
+      }
+      final ext = receipt.ext;
+      if (!_allowedExtensions.contains(ext)) {
+        throw ArgumentError(
+          'Format file tidak didukung ($ext). '
+          'Gunakan JPG, PNG, WebP, atau PDF.',
+        );
+      }
+      return;
+    }
+
+    final file = receipt.file;
     if (!file.existsSync()) {
       throw ArgumentError('File tidak ditemukan: ${file.path}');
     }
@@ -109,7 +226,7 @@ class ReceiptScanRepository {
       );
     }
 
-    final ext = p.extension(file.path).toLowerCase();
+    final ext = receipt.ext;
     if (!_allowedExtensions.contains(ext)) {
       throw ArgumentError(
         'Format file tidak didukung ($ext). '

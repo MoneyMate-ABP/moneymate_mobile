@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme/moneymate_theme.dart';
 import '../models/models.dart';
+import 'transaction_tile.dart';
 
 /// Renders a list of [transactions] grouped by date with sticky date headers.
 ///
@@ -42,15 +43,6 @@ class TransactionListContent extends StatelessWidget {
     return '$day $monthName $year';
   }
 
-  static String _formatCurrency(double amount) {
-    final parts = amount.toStringAsFixed(0).split('');
-    final buffer = StringBuffer();
-    for (int i = 0; i < parts.length; i++) {
-      if (i > 0 && (parts.length - i) % 3 == 0) buffer.write('.');
-      buffer.write(parts[i]);
-    }
-    return 'Rp ${buffer.toString()}';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +73,7 @@ class TransactionListContent extends StatelessWidget {
           return _DateHeader(date: entry.date);
         }
         final te = entry as _TransactionEntry;
-        return _TransactionTile(transaction: te.transaction);
+        return TransactionTile(transaction: te.transaction);
       },
     );
   }
@@ -124,72 +116,4 @@ class _DateHeader extends StatelessWidget {
   }
 }
 
-// ── Transaction tile ───────────────────────────────────────────────────────────
 
-class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({required this.transaction});
-  final Transaction transaction;
-
-  @override
-  Widget build(BuildContext context) {
-    final isIncome = transaction.type == TransactionType.income;
-    final color =
-        isIncome ? MoneyMateTheme.success : MoneyMateTheme.danger;
-    final sign = isIncome ? '+' : '-';
-    final categoryLabel =
-        transaction.categoryName ?? 'Kategori #${transaction.categoryId}';
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-        ),
-        child: ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          leading: CircleAvatar(
-            radius: 22,
-            backgroundColor: color.withValues(alpha: 0.15),
-            child: Icon(
-              isIncome
-                  ? Icons.arrow_downward_rounded
-                  : Icons.arrow_upward_rounded,
-              color: color,
-              size: 18,
-            ),
-          ),
-          title: Text(
-            categoryLabel,
-            style: const TextStyle(
-              color: MoneyMateTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          subtitle: transaction.note != null && transaction.note!.isNotEmpty
-              ? Text(
-                  transaction.note!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: MoneyMateTheme.textSecondary,
-                    fontSize: 12,
-                  ),
-                )
-              : null,
-          trailing: Text(
-            '$sign${TransactionListContent._formatCurrency(transaction.amount)}',
-            style: TextStyle(
-              color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
