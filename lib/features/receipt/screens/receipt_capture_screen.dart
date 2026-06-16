@@ -10,52 +10,149 @@ import '../providers/receipt_providers.dart';
 import 'receipt_preview_screen.dart';
 import 'mutation_review_screen.dart';
 
-class ReceiptCaptureScreen extends ConsumerStatefulWidget {
+class ReceiptCaptureScreen extends StatefulWidget {
   const ReceiptCaptureScreen({super.key});
 
   @override
-  ConsumerState<ReceiptCaptureScreen> createState() => _ReceiptCaptureScreenState();
+  State<ReceiptCaptureScreen> createState() => _ReceiptCaptureScreenState();
 }
 
-class _ReceiptCaptureScreenState extends ConsumerState<ReceiptCaptureScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+class _ReceiptCaptureScreenState extends State<ReceiptCaptureScreen> {
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scan Dokumen'),
-        centerTitle: false,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: MoneyMateTheme.accent,
-          labelColor: MoneyMateTheme.accent,
-          unselectedLabelColor: MoneyMateTheme.textSecondary,
-          tabs: const [
-            Tab(icon: Icon(Icons.receipt_long_rounded), text: 'Struk Belanja'),
-            Tab(icon: Icon(Icons.account_balance_wallet_rounded), text: 'Mutasi Bank'),
-          ],
-        ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _ReceiptTabContent(),
-          _MutationTabContent(),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: SlidingSegmentControl(
+              selectedIndex: _selectedIndex,
+              onValueChanged: (index) {
+                setState(() => _selectedIndex = index);
+              },
+              children: const [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.receipt_long_rounded),
+                    SizedBox(width: 8),
+                    Text('Struk Belanja'),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.account_balance_wallet_rounded),
+                    SizedBox(width: 8),
+                    Text('Mutasi Bank'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: const [
+                _ReceiptTabContent(),
+                _MutationTabContent(),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class SlidingSegmentControl extends StatelessWidget {
+  const SlidingSegmentControl({
+    required this.selectedIndex,
+    required this.children,
+    required this.onValueChanged,
+    super.key,
+  });
+
+  final int selectedIndex;
+  final List<Widget> children;
+  final ValueChanged<int> onValueChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = (constraints.maxWidth) / children.length;
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                left: selectedIndex * width,
+                top: 0,
+                bottom: 0,
+                width: width,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [MoneyMateTheme.accent, Color(0xFF5346E0)],
+                    ),
+                    borderRadius: BorderRadius.circular(9),
+                    boxShadow: [
+                      BoxShadow(
+                        color: MoneyMateTheme.accent.withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                children: List.generate(children.length, (index) {
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => onValueChanged(index),
+                      behavior: HitTestBehavior.opaque,
+                      child: Center(
+                        child: DefaultTextStyle(
+                          style: TextStyle(
+                            color: selectedIndex == index
+                                ? Colors.white
+                                : MoneyMateTheme.textSecondary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                          child: IconTheme(
+                            data: IconThemeData(
+                              color: selectedIndex == index
+                                  ? Colors.white
+                                  : MoneyMateTheme.textSecondary,
+                              size: 18,
+                            ),
+                            child: children[index],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

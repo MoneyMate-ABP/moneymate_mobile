@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -136,146 +137,284 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 28),
-                  Text(
-                    'MoneyMate',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: MoneyMateTheme.accent,
-                      fontSize: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    isRegister
-                        ? 'Daftar untuk mulai mengatur keuangan Anda.'
-                        : 'Masuk ke akun Anda untuk melihat transaksi dan budget.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 28),
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            if (isRegister) ...[
-                              TextFormField(
-                                controller: _nameController,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: const InputDecoration(
-                                  labelText: 'Nama Lengkap',
-                                  hintText: 'Masukkan nama lengkap Anda',
-                                ),
-                                validator: _validateName,
-                                textInputAction: TextInputAction.next,
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                            TextFormField(
-                              controller: _emailController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                hintText: 'nama@domain.com',
-                              ),
-                              validator: _validateEmail,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _passwordController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                labelText: 'Kata Sandi',
-                                hintText: 'Minimal 8 karakter',
-                              ),
-                              obscureText: true,
-                              validator: _validatePassword,
-                              textInputAction: isRegister
-                                  ? TextInputAction.next
-                                  : TextInputAction.done,
-                            ),
-                            if (isRegister) ...[
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _confirmPasswordController,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: const InputDecoration(
-                                  labelText: 'Konfirmasi Kata Sandi',
-                                  hintText: 'Ulangi kata sandi Anda',
-                                ),
-                                obscureText: true,
-                                validator: _validateConfirmPassword,
-                                textInputAction: TextInputAction.done,
-                              ),
-                            ],
-                            const SizedBox(height: 28),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _isSubmitting ? null : _submit,
-                                child: _isSubmitting
-                                    ? const SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : Text(
-                                        isRegister
-                                            ? 'Daftar Sekarang'
-                                            : 'Masuk',
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  isRegister
-                                      ? 'Sudah punya akun?'
-                                      : 'Belum punya akun?',
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                                TextButton(
-                                  onPressed: _isSubmitting ? null : _toggleMode,
-                                  child: Text(isRegister ? 'Masuk' : 'Daftar'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Akses cepat ke ringkasan keuangan, kategori, dan budget. Pilih mode dan lanjutkan.',
-                    style: theme.textTheme.bodySmall,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+      body: Stack(
+        children: [
+          // Background glows
+          Positioned(
+            top: -50,
+            left: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: MoneyMateTheme.accent.withValues(alpha: 0.12),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
+                child: Container(color: Colors.transparent),
               ),
             ),
           ),
-        ),
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: MoneyMateTheme.success.withValues(alpha: 0.08),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          ),
+          // Content
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [MoneyMateTheme.accent, Color(0xFF8B85FF)],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: MoneyMateTheme.accent.withValues(alpha: 0.3),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.account_balance_wallet_rounded,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'MoneyMate',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.0,
+                          foreground: Paint()
+                            ..shader = const LinearGradient(
+                              colors: [Colors.white, Color(0xFFC5C0FF)],
+                            ).createShader(const Rect.fromLTWH(0.0, 0.0, 200.0, 70.0)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isRegister
+                            ? 'Daftar untuk mulai mengatur keuangan Anda.'
+                            : 'Masuk ke akun Anda untuk melihat transaksi dan budget.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: MoneyMateTheme.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.02),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                            ),
+                            padding: const EdgeInsets.all(24),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                children: [
+                                  if (isRegister) ...[
+                                    TextFormField(
+                                      controller: _nameController,
+                                      style: const TextStyle(color: Colors.white),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Nama Lengkap',
+                                        hintText: 'Masukkan nama lengkap Anda',
+                                        prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
+                                      ),
+                                      validator: _validateName,
+                                      textInputAction: TextInputAction.next,
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
+                                  TextFormField(
+                                    controller: _emailController,
+                                    style: const TextStyle(color: Colors.white),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Email',
+                                      hintText: 'nama@domain.com',
+                                      prefixIcon: Icon(Icons.email_outlined, size: 20),
+                                    ),
+                                    validator: _validateEmail,
+                                    keyboardType: TextInputType.emailAddress,
+                                    textInputAction: TextInputAction.next,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _passwordController,
+                                    style: const TextStyle(color: Colors.white),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Kata Sandi',
+                                      hintText: 'Minimal 6 karakter',
+                                      prefixIcon: Icon(Icons.lock_outline_rounded, size: 20),
+                                    ),
+                                    obscureText: true,
+                                    validator: _validatePassword,
+                                    textInputAction: isRegister
+                                        ? TextInputAction.next
+                                        : TextInputAction.done,
+                                  ),
+                                  if (isRegister) ...[
+                                    const SizedBox(height: 16),
+                                    TextFormField(
+                                      controller: _confirmPasswordController,
+                                      style: const TextStyle(color: Colors.white),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Konfirmasi Kata Sandi',
+                                        hintText: 'Ulangi kata sandi Anda',
+                                        prefixIcon: Icon(Icons.lock_clock_outlined, size: 20),
+                                      ),
+                                      obscureText: true,
+                                      validator: _validateConfirmPassword,
+                                      textInputAction: TextInputAction.done,
+                                    ),
+                                  ],
+                                  const SizedBox(height: 28),
+                                  BounceButton(
+                                    onPressed: _isSubmitting ? null : _submit,
+                                    child: Container(
+                                      width: double.infinity,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          colors: [MoneyMateTheme.accent, Color(0xFF5346E0)],
+                                        ),
+                                        borderRadius: BorderRadius.circular(14),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: MoneyMateTheme.accent.withValues(alpha: 0.25),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: _isSubmitting
+                                          ? const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : Text(
+                                              isRegister ? 'Daftar Sekarang' : 'Masuk',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        isRegister ? 'Sudah punya akun?' : 'Belum punya akun?',
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                      TextButton(
+                                        onPressed: _isSubmitting ? null : _toggleMode,
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: MoneyMateTheme.accent,
+                                          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                                        ),
+                                        child: Text(isRegister ? 'Masuk' : 'Daftar'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Akses cepat ke ringkasan keuangan, kategori, dan budget. Pilih mode dan lanjutkan.',
+                        style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BounceButton extends StatefulWidget {
+  const BounceButton({
+    required this.child,
+    required this.onPressed,
+    super.key,
+  });
+
+  final Widget child;
+  final VoidCallback? onPressed;
+
+  @override
+  State<BounceButton> createState() => _BounceButtonState();
+}
+
+class _BounceButtonState extends State<BounceButton> {
+  double _scale = 1.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _scale = 0.96),
+      onTapUp: (_) => setState(() => _scale = 1.0),
+      onTapCancel: () => setState(() => _scale = 1.0),
+      onTap: widget.onPressed,
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
       ),
     );
   }

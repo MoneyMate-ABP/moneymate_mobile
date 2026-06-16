@@ -117,18 +117,14 @@ class _Skeleton extends StatefulWidget {
 class _SkeletonState extends State<_Skeleton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 0.15, end: 0.35).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
   }
 
   @override
@@ -140,15 +136,28 @@ class _SkeletonState extends State<_Skeleton>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _opacity,
-      builder: (_, __) => Container(
-        width: widget.width,
-        height: widget.height,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: _opacity.value),
-          borderRadius: BorderRadius.circular(widget.borderRadius),
-        ),
-      ),
+      animation: _controller,
+      builder: (_, __) {
+        final slide = _controller.value;
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.02),
+                Colors.white.withValues(alpha: 0.09),
+                Colors.white.withValues(alpha: 0.02),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+              begin: Alignment(-2.0 + (slide * 4), -0.5),
+              end: Alignment(0.0 + (slide * 4), 0.5),
+            ),
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
+          ),
+        );
+      },
     );
   }
 }
@@ -307,19 +316,25 @@ class _BalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6C63FF), Color(0xFF3D35BF)],
+          colors: [Color(0xFF6C63FF), Color(0xFF8B85FF), Color(0xFF4C42CC)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: MoneyMateTheme.accent.withValues(alpha: 0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.08),
+            blurRadius: 0,
+            offset: const Offset(0, 0),
+            spreadRadius: 1,
           ),
         ],
       ),
@@ -328,25 +343,34 @@ class _BalanceCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.account_balance_rounded,
-                  color: Colors.white70, size: 16),
-              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.account_balance_rounded,
+                    color: Colors.white, size: 14),
+              ),
+              const SizedBox(width: 8),
               Text(
                 'Total Saldo',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white70,
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
                     ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           Text(
             _formatRupiah(balance),
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
                 ),
           ),
         ],
@@ -371,42 +395,49 @@ class _MiniStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 18),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.015),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: 0.15)),
             ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: MoneyMateTheme.textSecondary,
-                    height: 1.3,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _formatRupiah(amount),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                    fontSize: 13,
-                  ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: MoneyMateTheme.textSecondary,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                  fontSize: 12,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _formatRupiah(amount),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  fontSize: 14,
+                  letterSpacing: -0.2,
+                ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

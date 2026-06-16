@@ -136,22 +136,37 @@ class BudgetStatusBar extends StatelessWidget {
               height: 6,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white10,
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: percentage,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isSurplus
-                          ? [MoneyMateTheme.success, const Color(0xFF27AE60)]
-                          : [MoneyMateTheme.danger, const Color(0xFFFF6B81)],
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0.0, end: percentage),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutCubic,
+                builder: (context, val, child) {
+                  return FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: val,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isSurplus
+                              ? [MoneyMateTheme.success, const Color(0xFF27AE60)]
+                              : [MoneyMateTheme.danger, const Color(0xFFFF6B81)],
+                        ),
+                        borderRadius: BorderRadius.circular(3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (isSurplus ? MoneyMateTheme.success : MoneyMateTheme.danger)
+                                .withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
                     ),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 14),

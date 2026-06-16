@@ -275,18 +275,31 @@ class _MutationReviewScreenState extends ConsumerState<MutationReviewScreen> {
                           item.categoryId = null;
                         }
 
-                        return Card(
+                        return Container(
                           margin: const EdgeInsets.only(bottom: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
+                          decoration: BoxDecoration(
+                            color: item.selected
+                                ? MoneyMateTheme.accent.withValues(alpha: 0.03)
+                                : Colors.white.withValues(alpha: 0.015),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
                               color: item.selected
-                                  ? MoneyMateTheme.accent.withValues(alpha: 0.5)
+                                  ? MoneyMateTheme.accent.withValues(alpha: 0.4)
                                   : Colors.white.withValues(alpha: 0.05),
+                              width: item.selected ? 1.5 : 1.0,
                             ),
+                            boxShadow: item.selected
+                                ? [
+                                    BoxShadow(
+                                      color: MoneyMateTheme.accent.withValues(alpha: 0.06),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    )
+                                  ]
+                                : null,
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [

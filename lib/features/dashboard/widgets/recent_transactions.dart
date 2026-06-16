@@ -114,36 +114,7 @@ class RecentTransactions extends ConsumerWidget {
                     ),
 
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ReceiptCaptureScreen(),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                          label: const Text('Scan Struk'),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const TransactionFormScreen(),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Tambah Transaksi'),
-                        ),
-                      ],
-                    ),
+                    _buildActionButtons(context),
                   ],
                 ),
               );
@@ -158,51 +129,137 @@ class RecentTransactions extends ConsumerWidget {
               children: [
                 ...recentList.map((tx) => TransactionTile(transaction: tx)),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ReceiptCaptureScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                        label: const Text('Scan Struk'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const TransactionFormScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Tambah Transaksi'),
-                      ),
-                    ),
-                  ],
-                ),
+                _buildActionButtons(context),
               ],
             );
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildActionButtons(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: _ActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ReceiptCaptureScreen(),
+                ),
+              );
+            },
+            isOutlined: true,
+            icon: Icons.receipt_long_rounded,
+            label: 'Scan Struk',
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _ActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TransactionFormScreen(),
+                ),
+              );
+            },
+            isOutlined: false,
+            icon: Icons.add,
+            label: 'Tambah Transaksi',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionButton extends StatefulWidget {
+  const _ActionButton({
+    required this.onPressed,
+    required this.isOutlined,
+    required this.icon,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final bool isOutlined;
+  final IconData icon;
+  final String label;
+
+  @override
+  State<_ActionButton> createState() => _ActionButtonState();
+}
+
+class _ActionButtonState extends State<_ActionButton> {
+  double _scale = 1.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _scale = 0.96),
+      onTapUp: (_) => setState(() => _scale = 1.0),
+      onTapCancel: () => setState(() => _scale = 1.0),
+      onTap: widget.onPressed,
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOutCubic,
+        child: Container(
+          height: 48,
+          decoration: widget.isOutlined
+              ? BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.02),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: MoneyMateTheme.accent.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
+                )
+              : BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF6C63FF),
+                      Color(0xFF8A84FF),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                widget.icon,
+                size: 18,
+                color: widget.isOutlined ? MoneyMateTheme.accent : Colors.white,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.isOutlined ? MoneyMateTheme.accent : Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
