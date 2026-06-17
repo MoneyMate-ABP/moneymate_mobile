@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../app/theme/moneymate_theme.dart';
 import '../../../core/utils/formatter.dart';
+import '../../../core/location/location_service.dart';
 import '../models/models.dart';
 import '../providers.dart';
 import 'transaction_form_screen.dart';
@@ -17,6 +20,65 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
 
 class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScreen> {
   bool _deleting = false;
+  String? _resolvedPlaceName;
+  bool _loadingPlaceName = false;
+  WebViewController? _mapController;
+
+  void _resolveLocationName(double lat, double lng) {
+    if (_resolvedPlaceName != null || _loadingPlaceName) return;
+    _loadingPlaceName = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        final name = await LocationService.instance.getPlaceName(lat, lng);
+        if (mounted) {
+          setState(() {
+            _resolvedPlaceName = name;
+            _loadingPlaceName = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _resolvedPlaceName = 'Nama lokasi tidak tersedia';
+            _loadingPlaceName = false;
+          });
+        }
+      }
+    });
+  }
+
+  void _initMapController(double lat, double lng) {
+    if (_mapController != null) return;
+    final url = 'https://maps.google.com/maps?q=$lat,$lng&z=15&output=embed';
+    _mapController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..loadRequest(Uri.parse(url));
+  }
+
+  Future<void> _openMap(double lat, double lng) async {
+    final googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    final appleMapsUrl = Uri.parse('http://maps.apple.com/?q=$lat,$lng');
+
+    try {
+      if (await canLaunchUrl(googleMapsUrl)) {
+        await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(appleMapsUrl)) {
+        await launchUrl(appleMapsUrl, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch map app';
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tidak dapat membuka peta: $e'),
+            backgroundColor: MoneyMateTheme.danger,
+          ),
+        );
+      }
+    }
+  }
 
   Future<void> _delete(Transaction transaction) async {
     final confirmed = await showDialog<bool>(
@@ -115,6 +177,13 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
         data: (transaction) {
           final isExpense = transaction.type == TransactionType.expense;
           final hasLocation = transaction.latitude != null && transaction.longitude != null;
+
+          if (hasLocation) {
+            _initMapController(transaction.latitude!, transaction.longitude!);
+            if (_resolvedPlaceName == null && !_loadingPlaceName) {
+              _resolveLocationName(transaction.latitude!, transaction.longitude!);
+            }
+          }
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -219,8 +288,14 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
+                                      _resolvedPlaceName ?? 'Memuat nama lokasi...',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                      textAlign: TextAlign.end,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
                                       '${transaction.latitude!.toStringAsFixed(5)}, ${transaction.longitude!.toStringAsFixed(5)}',
-                                      style: const TextStyle(fontSize: 13),
+                                      style: const TextStyle(fontSize: 11, color: MoneyMateTheme.textSecondary),
                                     ),
                                     const SizedBox(height: 6),
                                     TextButton.icon(
@@ -229,11 +304,9 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                                         minimumSize: Size.zero,
                                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                       ),
-                                      icon: const Icon(Icons.map, size: 14),
-                                      label: const Text('Buka di Peta'),
-                                      onPressed: () {
-                                        // Simple placeholder for opening maps
-                                      },
+                                      icon: const Icon(Icons.map, size: 14, color: MoneyMateTheme.accent),
+                                      label: const Text('Buka di Peta', style: TextStyle(color: MoneyMateTheme.accent)),
+                                      onPressed: () => _openMap(transaction.latitude!, transaction.longitude!),
                                     ),
                                   ],
                                 )
@@ -246,6 +319,28 @@ class _TransactionDetailScreenState extends ConsumerState<TransactionDetailScree
                     ),
                   ),
                 ),
+                if (hasLocation && _mapController != null) ...[
+                  const SizedBox(height: 16),
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+                          child: Text(
+                            'Peta Lokasi Transaksi',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ),
+                        SizedBox(
+                          height: 200,
+                          child: WebViewWidget(controller: _mapController!),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           );

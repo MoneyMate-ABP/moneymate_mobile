@@ -6,6 +6,8 @@
 	<string>MoneyMate memerlukan akses kamera untuk memindai struk belanja.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>MoneyMate memerlukan akses galeri untuk memilih foto struk belanja.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MoneyMate memerlukan izin lokasi Anda untuk mencatat tempat transaksi dilakukan.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

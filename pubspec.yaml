@@ -45,6 +45,9 @@ dependencies:
   timezone: ^0.9.4
   firebase_core: ^3.1.0
   firebase_messaging: ^15.0.2
+  geolocator: ^10.1.0
+  url_launcher: ^6.2.5
+  webview_flutter: ^4.4.2
 
 dev_dependencies:
   flutter_test:

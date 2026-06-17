@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../app/theme/moneymate_theme.dart';
+import '../../../core/location/location_service.dart';
 import '../../categories/models/category.dart' as cat_model;
 import '../../categories/providers.dart' as cat_prov;
 import '../../dashboard/providers.dart';
@@ -27,12 +29,20 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   late final TextEditingController _amountController;
   late final TextEditingController _noteController;
   late final TextEditingController _dateController;
+  late final TextEditingController _latController;
+  late final TextEditingController _lngController;
+
   late TransactionType _selectedType;
   int? _selectedCategoryId;
   double? _latitude;
   double? _longitude;
   bool _saving = false;
   bool _categoryMatched = false;
+  bool _detectingLocation = false;
+
+  String? _resolvedPlaceName;
+  bool _loadingPlaceName = false;
+  WebViewController? _mapController;
 
   bool get _isEdit => widget.transaction != null;
 
@@ -58,14 +68,124 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _selectedCategoryId = tx?.categoryId;
     _latitude = tx?.latitude;
     _longitude = tx?.longitude;
+
+    _latController = TextEditingController(text: _latitude?.toString() ?? '');
+    _lngController = TextEditingController(text: _longitude?.toString() ?? '');
+
+    _latController.addListener(_onCoordinatesChanged);
+    _lngController.addListener(_onCoordinatesChanged);
+
+    if (_latitude != null && _longitude != null) {
+      _updateMapPreview(_latitude!, _longitude!);
+      _resolveLocationName(_latitude!, _longitude!);
+    }
   }
 
   @override
   void dispose() {
+    _latController.removeListener(_onCoordinatesChanged);
+    _lngController.removeListener(_onCoordinatesChanged);
     _amountController.dispose();
     _noteController.dispose();
     _dateController.dispose();
+    _latController.dispose();
+    _lngController.dispose();
     super.dispose();
+  }
+
+  void _onCoordinatesChanged() {
+    final lat = double.tryParse(_latController.text.trim());
+    final lng = double.tryParse(_lngController.text.trim());
+
+    if (lat != null && lng != null) {
+      if (lat != _latitude || lng != _longitude) {
+        setState(() {
+          _latitude = lat;
+          _longitude = lng;
+        });
+        _updateMapPreview(lat, lng);
+        _resolveLocationName(lat, lng);
+      }
+    } else {
+      if (_latitude != null || _longitude != null) {
+        setState(() {
+          _latitude = null;
+          _longitude = null;
+          _resolvedPlaceName = null;
+          _mapController = null;
+        });
+      }
+    }
+  }
+
+  void _resolveLocationName(double lat, double lng) async {
+    setState(() {
+      _loadingPlaceName = true;
+      _resolvedPlaceName = null;
+    });
+    try {
+      final name = await LocationService.instance.getPlaceName(lat, lng);
+      if (mounted) {
+        setState(() {
+          _resolvedPlaceName = name;
+          _loadingPlaceName = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _resolvedPlaceName = 'Gagal memuat nama lokasi';
+          _loadingPlaceName = false;
+        });
+      }
+    }
+  }
+
+  void _updateMapPreview(double lat, double lng) {
+    final url = 'https://maps.google.com/maps?q=$lat,$lng&z=15&output=embed';
+    if (_mapController == null) {
+      _mapController = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(const Color(0x00000000))
+        ..loadRequest(Uri.parse(url));
+    } else {
+      _mapController!.loadRequest(Uri.parse(url));
+    }
+  }
+
+  Future<void> _detectLocation() async {
+    setState(() => _detectingLocation = true);
+    try {
+      final position = await LocationService.instance.getCurrentPosition();
+      if (mounted) {
+        _latController.text = position.latitude.toString();
+        _lngController.text = position.longitude.toString();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Lokasi berhasil dideteksi.'),
+            backgroundColor: MoneyMateTheme.success,
+          ),
+        );
+      }
+    } catch (err) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mendeteksi lokasi: $err'),
+            backgroundColor: MoneyMateTheme.danger,
+            action: SnackBarAction(
+              label: 'Gunakan Mock',
+              textColor: Colors.white,
+              onPressed: _useMockLocation,
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _detectingLocation = false);
+      }
+    }
   }
 
   Future<void> _selectDate() async {
@@ -99,9 +219,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   void _useMockLocation() {
     setState(() {
-      // Mock coordinates near central Jakarta
-      _latitude = -6.20000;
-      _longitude = 106.81667;
+      _latController.text = '-6.20000';
+      _lngController.text = '106.81667';
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -112,10 +231,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   void _clearLocation() {
-    setState(() {
-      _latitude = null;
-      _longitude = null;
-    });
+    _latController.clear();
+    _lngController.clear();
   }
 
   Future<void> _submit() async {
@@ -403,44 +520,108 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Geolocation mock input
+              // Geolocation input
               Card(
                 color: Colors.white.withValues(alpha: 0.02),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Text(
                         'Lokasi (Opsional)',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       const SizedBox(height: 12),
-                      if (_latitude != null && _longitude != null) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
-                              style: const TextStyle(fontSize: 13, color: MoneyMateTheme.success),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _detectingLocation ? null : _detectLocation,
+                              icon: _detectingLocation
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                                    )
+                                  : const Icon(Icons.my_location, size: 16),
+                              label: Text(_detectingLocation ? 'Mendeteksi...' : 'Deteksi Lokasi Saya'),
                             ),
+                          ),
+                          if (_latitude != null && _longitude != null) ...[
+                            const SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.clear, color: MoneyMateTheme.danger, size: 18),
+                              icon: const Icon(Icons.delete_outline, color: MoneyMateTheme.danger),
                               onPressed: _clearLocation,
+                              tooltip: 'Hapus Lokasi',
                             ),
                           ],
-                        ),
-                      ] else ...[
-                        const Text(
-                          'Belum ada data lokasi',
-                          style: TextStyle(fontStyle: FontStyle.italic, color: MoneyMateTheme.textSecondary, fontSize: 13),
-                        ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _latController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                              decoration: const InputDecoration(
+                                labelText: 'Latitude',
+                                hintText: '-6.20000',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _lngController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                              decoration: const InputDecoration(
+                                labelText: 'Longitude',
+                                hintText: '106.81667',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_latitude != null && _longitude != null) ...[
                         const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: _useMockLocation,
-                          icon: const Icon(Icons.my_location, size: 16),
-                          label: const Text('Gunakan Lokasi Saat Ini (Mock)'),
+                        // Geocoded Place Name
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white10,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.pin_drop, color: MoneyMateTheme.accent, size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _loadingPlaceName
+                                    ? const Text(
+                                        'Mencari nama lokasi...',
+                                        style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                                      )
+                                    : Text(
+                                        _resolvedPlaceName ?? 'Nama lokasi tidak tersedia',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                              ),
+                            ],
+                          ),
                         ),
+                        if (_mapController != null) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            height: 160,
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: WebViewWidget(controller: _mapController!),
+                          ),
+                        ],
                       ],
                     ],
                   ),
