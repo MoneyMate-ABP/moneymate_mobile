@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import '../network/api_client.dart';
 import '../storage/key_value_storage.dart';
 import '../storage/secure_key_value_storage.dart';
 
@@ -15,6 +19,15 @@ class NotificationService {
   static const String _enabledKey = 'daily_notifications_enabled';
 
   Future<void> initialize() async {
+    // 0. Initialize Firebase core messaging if native configurations exist
+    try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
+    } catch (e) {
+      debugPrint('FCM Warning: Firebase could not initialize. Native configs might be missing: $e');
+    }
+
     // 1. Initialize timezone database
     tz.initializeTimeZones();
     try {
@@ -121,5 +134,55 @@ class NotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
     return scheduledDate;
+  }
+
+  Future<void> syncFcmToken(ApiClient apiClient) async {
+    final isEnabled = await areNotificationsEnabled();
+    if (!isEnabled) return;
+
+    try {
+      if (Firebase.apps.isEmpty) {
+        debugPrint('FCM Warning: Skipped sync because Firebase is not initialized.');
+        return;
+      }
+
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional) {
+        final String? fcmToken = await messaging.getToken();
+        if (fcmToken != null) {
+          await apiClient.post(
+            '/api/notifications/subscribe-fcm',
+            body: {'token': fcmToken},
+          );
+          debugPrint('FCM Token synced to backend successfully.');
+        }
+      }
+    } catch (e) {
+      debugPrint('FCM Warning: Failed to sync FCM token to server: $e');
+    }
+  }
+
+  Future<void> clearFcmToken(ApiClient apiClient) async {
+    try {
+      if (Firebase.apps.isEmpty) return;
+
+      final String? fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) {
+        await apiClient.post(
+          '/api/notifications/unsubscribe-fcm',
+          body: {'token': fcmToken},
+        );
+        debugPrint('FCM Token cleared from backend successfully.');
+      }
+    } catch (e) {
+      debugPrint('FCM Warning: Failed to clear FCM token from server: $e');
+    }
   }
 }

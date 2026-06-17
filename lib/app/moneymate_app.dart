@@ -16,7 +16,7 @@ import 'theme/moneymate_theme.dart';
 import '../features/transactions/screens/transaction_list_screen.dart';
 import '../features/notification/providers.dart';
 import '../features/notification/screens/notification_history_screen.dart';
-
+import '../core/notification/notification_service.dart';
 
 class MoneyMateApp extends ConsumerWidget {
   const MoneyMateApp({super.key});
@@ -71,6 +71,14 @@ class _AppNavigationShellState extends ConsumerState<AppNavigationShell> {
     const CategoriesScreen(),
     ProfileScreen(session: widget.session),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.syncFcmToken(ref.read(apiClientProvider));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -39,6 +39,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _notificationsEnabled = value;
     });
     await NotificationService.instance.setNotificationsEnabled(value);
+    final apiClient = ref.read(apiClientProvider);
+    if (value) {
+      await NotificationService.instance.syncFcmToken(apiClient);
+    } else {
+      await NotificationService.instance.clearFcmToken(apiClient);
+    }
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -63,6 +69,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
 
     if (confirmed == true) {
+      final apiClient = ref.read(apiClientProvider);
+      await NotificationService.instance.clearFcmToken(apiClient);
       await ref.read(authControllerProvider.notifier).clearSession();
     }
   }
